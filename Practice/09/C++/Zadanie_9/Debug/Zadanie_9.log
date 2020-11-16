@@ -1,0 +1,4 @@
+﻿  Zadanie_9.cpp
+C:\Users\W-book\Desktop\Programming\Practice\09\C++\Zadanie_9\Zadanie_9.cpp(13,6): warning C4804: <=: небезопасное использование типа "bool" в операции
+C:\Users\W-book\Desktop\Programming\Practice\09\C++\Zadanie_9\Zadanie_9.cpp(23,6): warning C4804: <=: небезопасное использование типа "bool" в операции
+  Zadanie_9.vcxproj -> C:\Users\W-book\Desktop\Programming\Practice\09\C++\Zadanie_9\Debug\Zadanie_9.exe
