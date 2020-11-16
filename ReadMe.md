@@ -26,4 +26,5 @@
 Практическая 20 - [[Python]](./Practice/20/Python/) | 
 Практическая 21 - [[Python]](./Practice/21/Python/) | 
 Практическая 22 - [[Python]](./Practice/22/Python/) | 
+Практическая 23 - [[C++]](./Practice/23/C++/) |
 Практическая 24 - [[C++]](./Practice/24/C++/) [[Python]](./Practice/24/Python/) |
