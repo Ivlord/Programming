@@ -1,0 +1,2 @@
+C:\Users\W-book\Desktop\Programming\Lab\01\WebServer\Debug\WebServer.exe
+C:\Users\W-book\Desktop\Programming\Lab\01\WebServer\Debug\WebServer.pdb
