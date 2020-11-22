@@ -1,77 +1,63 @@
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-# Всё в жуткой спешке. Никак не оптимизировалось.
-# русский язык: даже не пробовал разбираться
-#
+
 import requests
-import tkinter as tk
-from tkinter.ttk import *
 import json
+from tkinter import *
 
+def GetNewData(r):
+    err = False
+    data = {'Town':' Ошибка', 'Desc': 'ошибка подключения', 'Temp':"??°C", 'Icon':'unknown'}
+    try:
+        desc.config(fg = "red")
+        root.update_idletasks()
+        result = requests.get('http://localhost:1234/raw')
+    except:
+        desc.config(fg = "black")
+        root.update_idletasks()
+        print('Ошибка получения данных.')
+        err = True
+    else:
+        desc.config(fg = "black")
+        root.update_idletasks()
+        if result.status_code!=200:
+            print('Код операции: ', result.status_code)
+            data['Desc']='Ошибка' + str(req.status_code)
+            err = True
+        else:
+            ret = result.json()
+            if "temp" not in ret:
+                err = True
+    if not err:
+        UpdateWidget( { 'Town':'Симферополь', 'Temp':str(int(ret["temp"])) + "°C",
+                        'Desc': ret["description"].encode('l1').decode(),'Icon':ret["icon"]})
+    else: UpdateWidget(data)
 
-def GetDataFromServer(srv='http://localhost:1234/raw', params=''):
-    req = requests.get('http://localhost:1234/raw')
+def UpdateWidget(data):
+    town["text"] = data['Town']
+    desc["text"] = data['Desc']
+    temp["text"] = data['Temp']
 
-    if req.status_code!=200:
-        print('Ошибка!')
-        return {"city_name":"Error", "description":"access failed", "temp_int":"-" }
-    print("ok")
-    return req.json()
+    canvas.delete("all")
+    my_img = PhotoImage(file = ".\\icons_for_python_client\\" + data['Icon'] + ".png")
+    canvas.create_image(0, -10, anchor = 'nw', image = my_img)
+    canvas.image = my_img
 
-data=GetDataFromServer()
+root = Tk()
+root.geometry("180x270+300+400")
+root.resizable(0, 0)
+root.overrideredirect(1)
 
-def reload_data(r):
-    data=GetDataFromServer()
+town   = Label(root, height=1, width=20, fg='black', bg='orange', font=("Times", 14, 'bold'))
+desc   = Label(root, height=1, width=30, fg='black', bg='orange', font=("Times",  9, 'bold'))
+temp   = Label(root, height=1, width=10, fg='black', bg='white' , font=("Times", 48, 'bold'))
+footer = Label(root, height=2, width=30, bg="orange")
+canvas = Canvas(height = 150, width = 130)
 
+town.pack(  side=TOP)
+desc.pack(  side=TOP)
+temp.pack(  side=TOP)
+footer.pack(side=BOTTOM)
+canvas.pack(side=BOTTOM)
 
-# Create the master object
-main = tk.Tk()
-main.geometry("120x150+250+400")
-main.title("Weather forecast")
-main.resizable(0, 0)
-main.overrideredirect(1)
-
-#stl = Style()
-#stl.configure('pogoda', background='orange')
-
-upframe = tk.Frame(master=main, bg='orange', width=0, height=0)
-ceframe = tk.Frame(master=main, bg='white')
-dnframe = tk.Frame(master=main, bg='orange')
-
-
-#side=tk.LEFT, padx=10, pady=10
-upframe.pack(fill="both", padx=0, pady=0 ) #, fill="both", expand=True
-ceframe.pack(fill="both", expand=True)
-dnframe.pack(fill="both", expand=True)
-
-tk.Label(master=upframe, text=data["city_name"], bg='orange', font=("Helvetica", 16) ).pack()#.grid(row=0, column=0)
-tk.Label(master=upframe, text=data["description"], bg='orange',font=("Helvetica", 8)).pack()#.grid(row=1, column=0)
-tk.Label(master=ceframe, text=str(data["temp_int"])+"°C", bg='white',font=("Helvetica", 40)).pack()#.grid(row=1, column=0)
-
-main.bind("<Button-1>", reload_data)
-
-tk.mainloop()
-
-
-
-
-
-
-
-'''
-with open("in.json", "r") as read_file:
-    data = json.load(read_file)
-out=[]
-for i in data:
-    if not out or out[-1]['userId']!=i['userId']:
-        out.append({'task_completed':0, 'userId':i['userId']})
-    if i['completed']: out[-1]['task_completed']+=1
-'''
+GetNewData(None)
+root.bind("<Button-1>", GetNewData)
+mainloop()
