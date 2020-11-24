@@ -302,18 +302,14 @@ int main() {
 <p align="center">
 <table>
 <tr>
-<td>
-<img src="image/Python_client_online.jpg" align="center">
+<td><p align="center">
+<img src="image/Python_client_online.jpg" align="center"></p>
 </td>
-<td>
-<img src="image/Python_client_no_connection.jpg" align="center">
+<td><p align="center">
+<img src="image/Python_client_no_connection.jpg" align="center"></p>
 </td></tr>
-<tr><td>
-Рис.3 Баннер Клиента после неудачного получения информации
-</td>
-<td>
-Рис.2 Баннер Клиента после получения данных
-</td></tr>
+<tr><td>Рис.2 Баннер Клиента после получения данных</td>
+<td>Рис.3 Баннер Клиента после неудачного получения информации</td></tr>
 </table>
 </p>
 
