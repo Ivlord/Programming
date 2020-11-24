@@ -80,12 +80,11 @@
 <p>    Наиболее сложным мне показалось создание виджета, т.к. пришлось изучить большой кусок с++: работа с текстовыми данными типа string, и разницу между string и char.
 Но всё заработало! Код получился весьма неоптимизированный, но я до этого практически не сталкивался с с++. <br>Привожу полный код клиентского приложения:</p>
 
-<p align="center"><img src="image/Wiget_in_browser.jpg">
-
-<br>Рис 1. Виджет отдаваемый сервером
-</p>
+<p align="center"><img src="image/Wiget_in_browser.jpg"></p>
+<br><p align="center">Рис 1. Виджет отдаваемый сервером</p>
 
 <code>
+`
 #define DEBUG_ON
 #include <iostream>
 #include "cpp_httplib/httplib.h"
@@ -270,7 +269,6 @@ void gen_response_time(const Request& req, Response& res) {
 
 int main() {
     setlocale(LC_ALL, "Russian");
-
     Server svr;
     svr.Get("/", gen_response_root);
     svr.Get("/raw", gen_response_raw);
@@ -292,6 +290,7 @@ int main() {
     svr.listen("localhost", 3000); // supports  http://localhost:1234/
     return 0;
 }
+`
 </code>
 
 <h3>IV. Подготовка клиентского приложения</h3>
@@ -321,6 +320,7 @@ int main() {
 <p>    Привожу ниже полный текст Клиентского приложения:</p>
 
 <code>
+`
 import requests
 import json
 from tkinter import *
@@ -387,6 +387,7 @@ canvas.pack(side=BOTTOM)
 GetNewData(None)
 root.bind("<Button-1>", GetNewData)
 mainloop()
+`
 </code>
 
 <h3>V. Туннель</h3>
