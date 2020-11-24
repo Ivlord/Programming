@@ -81,7 +81,7 @@
 Но всё заработало! Код получился весьма неоптимизированный, но я до этого практически не сталкивался с с++. <br>Привожу полный код клиентского приложения:</p>
 
 <p align="center"><img src="image/Wiget_in_browser.jpg"></p>
-<br><p align="center">Рис 1. Виджет отдаваемый сервером</p>
+<p align="center">Рис 1. Виджет отдаваемый сервером</p>
 
 <code>
 `
@@ -303,10 +303,10 @@ int main() {
 <table>
 <tr>
 <td>
-<img src="image/Python_client_online.jpg">
+<img src="image/Python_client_online.jpg" align="center">
 </td>
 <td>
-<img src="image/Python_client_no_connection.jpg">
+<img src="image/Python_client_no_connection.jpg" align="center">
 </td></tr>
 <tr><td>
 Рис.3 Баннер Клиента после неудачного получения информации
@@ -394,6 +394,6 @@ mainloop()
 <p>    Я изучил программу ngrok (https://ngrok.com/) и научился создавать тунели для localhost. Такие знания могут пригодиться в дальнейшем для работы с клиентами.</p>
 
 
-<h2>Вывод<h2>
+<h2>Вывод</h2>
 <p>    В целом работа мне очень понравилась. В ходе работы пришлось изучить много нового и интересного. Познакомиться с новыми технологиями. Большое спасибо!</p>
 
