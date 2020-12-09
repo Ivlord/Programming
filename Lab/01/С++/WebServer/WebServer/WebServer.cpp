@@ -35,7 +35,7 @@ int SiteAccess(std::string dir, char ip[], std::string ident, json& result) {
     #ifdef DEBUG_ON
     std::cout << "  + запрос " + ident + "\n";
     #endif
-    Client weather_server(ip); auto res = weather_server.Get(dir.c_str());
+    Client some_site(ip); auto res = some_site.Get(dir.c_str());
 
     if (res) {
         #ifdef DEBUG_ON
@@ -75,7 +75,7 @@ std::string PrepareWiget() {
     std::ifstream inFile(wiget_file_name); // Файловая переменная
     std::string one_line;
     if (inFile.is_open()) {
-        std::getline(inFile, one_line);
+        //std::getline(inFile, one_line);
         getline(inFile, one_line, '\0');
         inFile.close();
         //std::cout << one_line << "\n";
