@@ -9,7 +9,7 @@ def GetNewData(r):
     try:
         desc.config(fg = "red")
         root.update_idletasks()
-        result = requests.get('http://localhost:1234/raw')
+        result = requests.get('http://localhost:3000/raw')
     except:
         desc.config(fg = "black")
         root.update_idletasks()
