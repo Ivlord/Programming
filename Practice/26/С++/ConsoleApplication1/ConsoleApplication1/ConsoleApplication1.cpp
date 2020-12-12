@@ -76,7 +76,9 @@ vector<vector<T>> BozoSort(vector<vector<T>> vect, bool sort_type = true) {
 	int vect_size = vect.size();
 	int elements_in_vect = vect_size * vect_size;
 
-	int x1, y1, x2, y2, idx1 = 0, idx2 = 0, temporary;
+	int x1, y1, x2, y2, idx1 = 0, idx2 = 0;
+	T temporary;
+
 	bool need_sorting = true;
 
 	while (need_sorting) {
@@ -210,8 +212,8 @@ int main() {
 	print_out(BozoSort(v_1ds, false));
 	cout << "\n";
 
-	//print_out(BozoSort(v_2ds));
-	//print_out(BozoSort(v_2ds, false));
+	print_out(BozoSort(v_2ds));
+	print_out(BozoSort(v_2ds, false));
 
 	print_out(BozoSort(v_1ds[0], v_1ds[1], v_1ds[2]));
 	cout << "\n";
@@ -219,4 +221,3 @@ int main() {
 	cout << "\n";
 
 }
-
