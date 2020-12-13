@@ -8,12 +8,12 @@ def GetNewPrime(): #Z_13_modification
         num+=2
         for b in primes:
             if not num%b: break
-            if b>num:           # квадрат чиста из primes превышает текущее число, т.е. точно num-натуральное
-                primes.add(num*num-1)
+            if b*b-1>num:           # квадрат чиста из primes превышает текущее число, т.е. точно num-натуральное
+                primes.add(num)
                 yield num
                 break
         else:
-            primes.add(num*num-1)
+            primes.add(num)
             yield num
 
 def print_factorization(n):
