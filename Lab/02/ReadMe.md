@@ -89,8 +89,11 @@
 <p align="center"><img src="image/image5.png"></p>
 <p align="center">Рис 5. Внешний вид таблички заказов.</p>
 
-<p>&nbsp;&nbsp;&nbsp;&nbsp;Привожу ниже полный текст серверного приложения (с++):</p>  
-```c++ 
+<p>&nbsp;&nbsp;&nbsp;&nbsp;Привожу ниже полный текст серверного приложения (с++):</p>
+
+
+```c++
+
 #include <iostream> //#include <cmath> //#include <iomanip>
 #include <cpp_httplib/httplib.h>
 #include <nlohmann/json.hpp>
@@ -633,8 +636,11 @@ int main() {
 ```
 
 
+
 <p>&nbsp;&nbsp;&nbsp;&nbsp;Привожу ниже полный текст серверного приложения (python):</p>  
+
 ```python
+
 from openpyxl import Workbook
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -745,6 +751,7 @@ def index():
 
 if __name__ == "__main__":
     app.run()
+
 ```
 
 <h2>Вывод</h2>
