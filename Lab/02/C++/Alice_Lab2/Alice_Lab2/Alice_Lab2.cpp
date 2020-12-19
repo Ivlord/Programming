@@ -5,8 +5,6 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-#include "Alisa_srv.h"
-
 using namespace std;
 using namespace httplib;
 using json = nlohmann::json;
@@ -20,27 +18,28 @@ string del1 = u8R"(<div class = "form-row align-items-center"><div class = "col"
 string del2 = u8R"(" class = "form-control mb-2" disabled></div><div class = "col"><button type = "submit" name = "del" value = ")";
 string del3 = u8R"(" class = "btn btn-danger mb-2">Удалить</button></div></div>)";
 
-string s_false = u8"false"; string s_true = u8"true";
-string s_general[] = { u8R"({ "response": { "text": ")",
-                            u8R"(", "tts": ")",
-                            u8R"(", "buttons": [ )",
-                            u8R"( ], "end_session": )",
-                            u8R"(}, "version": "1.0" })" };
-string s_button[] = { u8R"({ "title": ")" , u8R"(", "hide": ")" , u8R"(" })" }; //"payload": {},
+json j_shablon_btn = json::parse(u8R"({ "title": " ", "hide" : true })"); //"payload": {},
+json j_shablon_rep = json::parse(u8R"({ "response": { "text": " ", "tts": " ", "buttons": [],
+                                        "end_session": false }, "version": "1.0"})");
+// "silent_mode"    - 0- Ализа заткнулась,  1 - продолжает говорить 
+// "screen":"Main"  - текущий экран
+json ses_shablon = json::parse(u8R"({"screen":"Main", "silent_mode":1,  
+                                     "session_id":"", "user_id":"" , "basket": { "user_id": "", "check" : [] } } )");
 
-// Секция предустановок
-int Can_talk = 1;  // 0- Ализа заткнулась,  1 - продолжает говорить 
-string screen = u8"Main";  // 0-добавление в корзину ,  1- режим помощи
-string user_id, session_id;
-
-json cfg, dialog; // config file and dialog file
-json b = {}, s = {}, a = {}; // short names for dialog sections: buttons, screens, actions
-json basket = json::parse(u8R"({ "user_id": "", "check" : [] })");
 json good = json::parse(u8R"({ "item": "", "price" : 0 })");
+//json basket = json::parse(u8R"({ "user_id": "", "check" : [] })");
+
+json cfg, ses; // config file and session json
+json button_exception = {}, s = {}, a = {}; // short names for dialog parts: button_exception, screens, actions
 
 void ppp(json& data, bool yy = true) {
     ofstream logger("log.txt");
-    logger << "\n" << data.dump(1) << "\n==================================================================\n\n\n";
+    logger << data.dump(1) << "\n==================================================================\n\n\n";
+    if (yy) logger.close();
+}
+void pps(string& data, bool yy = true) {
+    ofstream logger("log.txt");
+    logger << data << "\n==================================================================\n\n\n";
     if (yy) logger.close();
 }
 
@@ -48,41 +47,32 @@ bool exists(const json& j, const string& key) { // проверка, есть л
     return j.find(key) != j.end();
 }
 
-string MakeBtn(json& button_list, string button_name, string s_plus = "") {
-    string hide = "";
-    int hide_can_talk;
-    for (unsigned i = 0; i < button_list.size(); i++) {
-        if (button_list[i]["Title"] != button_name) continue;
-        hide = button_list[i]["hide"];
-        hide_can_talk = button_list[i]["Hide Can_talk="].get<int>();
-        break;
-    }
-
-    if (hide == "" || hide_can_talk == Can_talk) return "";
-    return s_button[0] + button_name + s_button[1] + hide + s_button[2] + s_plus;
-}
-
-string MakeBtns(json& button_list, json& need_button_list, string s_plus = "") {
-    string res = "";
-    string tmp = "";
-    bool first_run = true;
-
+void MakeBtns(json& list_for_buttons, json& need_button_list) {
     for (unsigned i = 0; i < need_button_list.size(); i++) {
-        tmp = MakeBtn(button_list, need_button_list[i].get<string>());
-        if (tmp == "") continue;
+        string new_button_name = need_button_list[i];
 
-        res = res + ((first_run) ? "" : ", ") + tmp;
-        first_run = false;
+        if (exists(button_exception, new_button_name)) {
+            if (button_exception[new_button_name]["silent_mode"] == ses["silent_mode"]) continue;
+        }
+        json new_button = j_shablon_btn;
+        new_button["title"] = new_button_name;
+        list_for_buttons.push_back(new_button);
     }
-    return res + s_plus;
 }
 
-string MakeReply(string txt, string tts, json& button_list, json& need_button_list, string end_session = "false") {
-    //cout << "   >MakeReply \n   " << button_list.dump(4) << "\n" << need_button_list.dump(4);
-    string res = s_general[0] + txt + s_general[1] + tts + s_general[2];
-    res = res + MakeBtns(button_list, need_button_list, "");
-    res = res + s_general[3] + end_session + s_general[4];
-    return res;
+json MakeReply(string txt, string tts, bool end_session = false) {
+    json reply = j_shablon_rep;
+    string tmp = ses["screen"];
+    if (!exists(s, ses["screen"])) ses["screen"] = "Main";
+
+    MakeBtns(reply["response"]["buttons"], s[tmp]["buttons"]);
+
+    if (ses["silent_mode"] == 0) tts = "sil <[500]>";
+    reply["response"]["text"] = txt;
+    reply["response"]["tts"] = tts;
+    reply["response"]["end_session"] = end_session;
+    //ppp(reply);
+    return reply;
 }
 
 bool In_str(string main_string, string sub_string) {
@@ -91,7 +81,7 @@ bool In_str(string main_string, string sub_string) {
 }
 
 int CntToken(string data) {
-    int cnt = 1; // points to the next token
+    int cnt = 1;                                 // points to the next token
     while (data.find(" ") != std::string::npos) {
         cnt += 1;
         data.replace(data.find(" "), size(" "), "");
@@ -99,103 +89,141 @@ int CntToken(string data) {
     return cnt;
 }
 
-//"tts": "sil <[500]>" //["session"]["user"]["user_id"] or "anonymous"
-string OrderProcess(json& body) {
-    string msg_out = "", tts_out = "";
-    json a_need = s[screen]["actions"];       // actions for this screen - list
-    json fnd_act = {}; string fnd_word = "";  // для совпавшей action и конкретно совпавшего слова
-    string com_val_str = "";                  // правильное сообщение
+bool SendWebhooks(json& basket) {
+    for (int i = 0; i < cfg["webhooks"].size(); i++) {
 
-    for (auto& act : a) { //a[name]["check"] - list  //a[name]["react"] - {}
-        ppp(act, 0);
-        for (auto& check : act["check"]) {
-            if (!In_str(body["request"]["original_utterance"].get<string>(), check)) continue;// нет совпадения - дальше
-            fnd_act = act;    // запоминаем "спаботавший" action
-            fnd_word = check;    // и конкретное слово, на котором сработало
-            break;
+        string webhook_url = cfg["webhooks"][i]; // https:\\ 9 chars
+
+        string url = webhook_url.substr(0, webhook_url.find("/", 9));  // url
+        string dir = webhook_url.substr(webhook_url.find("/", 9));                     // dir
+
+        Client cli(url.c_str());
+        auto cli_res = cli.Post(dir.c_str(), basket.dump(), "application/json");
+
+        if (cli_res) { // Проверяем статус ответа, т.к. может быть 404 и другие
+            if (cli_res->status == 200) {
+                // В res->body лежит string с ответом сервера
+                //std::cout << cli_res->body << std::endl;
+                return true;
+            }
+            else  std::cout << "Status code: " << cli_res->status << std::endl;
         }
-        if (!fnd_act.is_null()) break;
+        else { auto err = cli_res.error();  std::cout << "Error code: " << err << std::endl; }
+        return false;
     }
-    ppp(fnd_act);
+}
 
-    //logger <<"\n\n"<< fnd_act.dump(3) << "\n\n==================================================================\n\n\n";
+//["session"]["user"]["user_id"] or "anonymous"
+json OrderProcess(json& body) {
+    string msg_picker = "";                   // ключ правильного сообщения
+                                              // Инициализация новой сессии с приветственным ответом. +обнуление корзины.
+    if (body["session"]["new"].get<bool>()) { // true-для новой сесии, false- продолжение
+        ses = ses_shablon;
+        ses["session_id"] = body["session"]["session_id"];            // сохраняем новый id сессии
 
-    if (fnd_act.is_null()) { // нихера не нашли, возвращаем "я не знаю такой команды" // доделать
-        msg_out = u8"Команда не распознана";// .get<string>();
-        tts_out = u8"Команда не распознана";
+        if (empty(body["session"]["user"]["user_id"])) ses["user_id"] = "anonymous";
+        else ses["user_id"] = body["session"]["user"]["user_id"];       // и id пользователя или "anonymous"
+        msg_picker = ses["screen"];
 
-        return MakeReply(msg_out, tts_out, b, s[screen]["buttons"], "false");
+        return MakeReply(s[msg_picker]["in_msg"][0], s[msg_picker]["in_tts"][0]);
+    }
+    else if (body["session"]["session_id"] != ses["session_id"])    // пришла сессия без id?
+      // сессия поменяла свой id неожиданно?
+    { // резко завершаем разговор и валим закрываем сессию=true
+        msg_picker = ses["screen"];
+        return MakeReply(s["Main"]["out_msg"][0], s["Main"]["out_tts"][0], true);
     }
 
-    // command processing section
-    for (auto& com : fnd_act["react"][screen]) { // com= [{"CgangeVar":"Can_talk", "Val":false}, {"Msg":"Start"}]
+    string msg_out = "", tts_out = "";
+    string fnd_word = "", fnd_act = "";  // для совпавшей action и конкретно совпавшего слова
+
+    string current_screen = ses["screen"];
+    //for (auto& action : s[current_screen]["actions"]) { // идём по списку возможных реакций на текущем screen
+
+    json sa = s[current_screen]["actions"];
+    for (unsigned i = 0; i < sa.size(); i++) { // список экшинов на экране
+        string new_chck = sa[i]; // конкретный экшин
+
+        if (!exists(a, new_chck)) continue;              // такой реакции нет в списке реакций. пропускаем.
+        for (unsigned j = 0; j < a[new_chck]["check"].size(); j++) { // идём оп словам контрольным
+
+            if (!In_str(body["request"]["original_utterance"], a[new_chck]["check"][j])) continue;// нет совпадения - дальше
+            fnd_act = new_chck;                         // запоминаем "сработавший" action
+            fnd_word = a[new_chck]["check"][j];         // и конкретное слово, на котором сработало
+            break;
+        } if (fnd_act != "") break;
+    }
+
+    if (empty(fnd_act)) { // никаких признаков правильного ввода от пользователя, возвращаем "я не знаю такой команды" // доделать
+        return MakeReply(s[(string)ses["screen"]]["fail_msg"][0], s[(string)ses["screen"]]["fail_tts"][0]);
+    }
+
+    //// command processing section
+    for (auto& com : a[fnd_act]["react"][(string)ses["screen"]]) { // com= [{"CgangeVar":"Can_talk", "Val":false}, {"Msg":"Start"}]
         if (exists(com, "Msg")) {              // обработка команд Msg: устанавливаем текст ответа
-            com_val_str = com["Msg"];
-            msg_out = msg_out + fnd_act["messages"][com_val_str]["msg"][0].get<string>();
-            tts_out = tts_out + fnd_act["messages"][com_val_str]["tts"][0].get<string>();
+            msg_picker = com["Msg"];           // берём название текста, для печати из значения команды "Msg"
+            msg_out = msg_out + a[fnd_act]["messages"][msg_picker]["msg"][0].get<string>();
+            tts_out = tts_out + a[fnd_act]["messages"][msg_picker]["tts"][0].get<string>();
             continue;
         }
         else if (exists(com, "ChangeVar_Can_talk")) {
-            Can_talk = com["ChangeVar_Can_talk"].get<int>();
+            ses["silent_mode"] = com["ChangeVar_Can_talk"].get<int>();
         }
         else if (exists(com, "ChangeVar_screen")) {
-            screen = com["ChangeVar_screen"].get<string>();
+            ses["screen"] = com["ChangeVar_screen"].get<string>();
         }
         else if (exists(com, "print")) {} // так и надо
         else if (exists(com, "del_good")) { //"del_good""add_good""sum""dell_all""list"
             string new_good = body["request"]["nlu"]["tokens"][CntToken(fnd_word)];
             bool fnd_good = false;
-            for (unsigned i = 0; i < basket["check"].size(); i++) {
-                if (basket["check"][i]["item"] != new_good) continue;
-                basket["check"].erase(i);
+            for (unsigned i = 0; i < ses["basket"]["check"].size(); i++) {
+                if (ses["basket"]["check"][i]["item"] != new_good) continue;
+                ses["basket"]["check"].erase(i);
                 fnd_good = true;
                 break;
             }
-            com_val_str = "Fail";
-            if (fnd_good) com_val_str = "Main";
-            msg_out = msg_out + fnd_act["messages"][com_val_str]["msg"][0].get<string>();
-            tts_out = tts_out + fnd_act["messages"][com_val_str]["tts"][0].get<string>();
+            msg_picker = "Fail";
+            if (fnd_good) msg_picker = "Main";
+            msg_out = msg_out + a[fnd_act]["messages"][msg_picker]["msg"][0].get<string>();
+            tts_out = tts_out + a[fnd_act]["messages"][msg_picker]["tts"][0].get<string>();
         }
         else if (exists(com, "list")) { // List of goods
-            string all_goods_list = "";
 
             int cnt = 0;
             bool first_run = true;
-            for (unsigned i = 0; i < basket["check"].size(); i++) {
-                if (!first_run) all_goods_list.append(u8"\n ");
-                all_goods_list.append(basket["check"][i]["item"].get<string>());
-                all_goods_list.append("\t");
-                all_goods_list.append(basket["check"][i]["price"].get<string>());
+            for (unsigned i = 0; i < ses["basket"]["check"].size(); i++) {
+                if (first_run) {
+                    msg_out += string(a[fnd_act]["messages"]["Main"]["msg"][0]);
+                    tts_out += string(a[fnd_act]["messages"]["Main"]["tts"][0]);
+                    first_run = false;
+                }
+                string m1 = string(ses["basket"]["check"][i]["item"]); //.get<string>()
+                string m2 = to_string(ses["basket"]["check"][i]["price"]);
+                msg_out = msg_out + m1 + "\t" + m2 + "\n";
+                tts_out = msg_out + m1 + "\t" + m2 + "\n";
                 cnt += 1;
-                bool first_run = false;
             }
 
-            if (cnt > 0) { // если что-то найдено в корзине
-                msg_out.append(fnd_act["messages"]["Main"]["msg"][0].get<string>()).append(u8" ");
-                tts_out.append(fnd_act["messages"]["Main"]["tts"][0].get<string>());
-                string(msg_out.append(all_goods_list));
-                string(tts_out.append(all_goods_list));
-            }
-            else {
-                msg_out = string(msg_out + fnd_act["messages"]["Fail"]["msg"][0].get<string>());
-                tts_out = string(tts_out + fnd_act["messages"]["Fail"]["tts"][0].get<string>());
+            if (cnt == 0) { // если не найдено в корзине
+                msg_out = msg_out + string(a[fnd_act]["messages"]["Fail"]["msg"][0]);
+                tts_out = tts_out + string(a[fnd_act]["messages"]["Fail"]["tts"][0]);
             }
         }
         else if (exists(com, "sum")) { // Sum
             int price = 0;
-            for (unsigned i = 0; i < basket["check"].size(); i++) {
-                price = price + basket["check"][i]["price"].get<int>();
+            for (unsigned i = 0; i < ses["basket"]["check"].size(); i++) {
+                price = price + ses["basket"]["check"][i]["price"].get<int>();
             }
 
             if (price != 0) { // есть покупки
-                msg_out = msg_out + fnd_act["messages"]["Main"]["msg"][0].get<string>();
-                tts_out = tts_out + fnd_act["messages"]["Main"]["tts"][0].get<string>();
+                msg_out = msg_out + a[fnd_act]["messages"]["Main"]["msg"][0].get<string>();
+                tts_out = tts_out + a[fnd_act]["messages"]["Main"]["tts"][0].get<string>();
                 msg_out = msg_out + to_string(price);
                 tts_out = tts_out + to_string(price);
             }
             else {
-                msg_out = msg_out + fnd_act["messages"]["Fail"]["msg"][0].get<string>();
-                tts_out = tts_out + fnd_act["messages"]["Fail"]["tts"][0].get<string>();
+                msg_out = msg_out + a[fnd_act]["messages"]["Fail"]["msg"][0].get<string>();
+                tts_out = tts_out + a[fnd_act]["messages"]["Fail"]["tts"][0].get<string>();
             }
         }
         else if (exists(com, "add_good")) {
@@ -206,35 +234,43 @@ string OrderProcess(json& body) {
                 price = body["request"]["nlu"]["entities"][i]["value"];
                 break;
             }
-            com_val_str = "Fail";
+            msg_picker = "Fail";
             if (price != 0) {
-                com_val_str = "Main";
+                msg_picker = "Main";
                 good["item"] = new_good;
                 good["price"] = price;
-                basket["check"].push_back(good);
+                ses["basket"]["check"].push_back(good);
             }
-            msg_out = msg_out + fnd_act["messages"][com_val_str]["msg"][0].get<string>();
-            tts_out = tts_out + fnd_act["messages"][com_val_str]["tts"][0].get<string>();
+            msg_out = msg_out + a[fnd_act]["messages"][msg_picker]["msg"][0].get<string>();
+            tts_out = tts_out + a[fnd_act]["messages"][msg_picker]["tts"][0].get<string>();
         }
         else if (exists(com, "dell_all")) {
-            basket = json::parse(u8R"({ "user_id": "", "check" : [] })");  // очистили корзину
-            basket["user_id"] = body["session"]["user"]["user_id"];        // запомнили id пользователя
+            ses["basket"] = json::parse(u8R"({ "user_id": "", "check" : [] })");  // очистили корзину
+            ses["basket"]["user_id"] = body["session"]["user"]["user_id"];        // запомнили id пользователя
         }
-        else if (exists(com, "cmd")) { //"send webhooks" "end session"
-            msg_out = msg_out + u8"Отсылка пока не работает";
-            tts_out = tts_out + u8"Отсылка пока не работает";
+        else if (exists(com, "end session")) { //"send webhooks" "end session"
+
+            if (SendWebhooks(ses["basket"])) {
+                msg_out = msg_out + u8"\nError";
+                tts_out = tts_out + u8"Отсылка пока не работает";
+            }
+            else {
+                return MakeReply(msg_out, tts_out, true);
+            }
         }
     }
-    return MakeReply(msg_out, tts_out, b, s[screen]["buttons"], "false");
+    if (msg_out == "") { msg_out = u8"Что-то не так..."; }
+
+    return MakeReply(msg_out, tts_out);
 }
 
 void gen_response(const Request& req, Response& res) {
 
-    json body = json::parse(req.body.c_str());
+    json body = json::parse(req.body.c_str()); //u8     //cout << req.body.c_str()<<"\n\n";
 
-    string str = OrderProcess(body);
+    json ttt = OrderProcess(body);
 
-    res.set_content(str, "text/json; charset=UTF-8");
+    res.set_content(ttt.dump(), "text/json; charset=UTF-8");
 }
 
 bool ConfigSave(json& cfg) {
@@ -334,33 +370,17 @@ int main() {
     else {
         if (!dialog.contains("/dialog"_json_pointer) ||
             !dialog.contains("/dialog/actions"_json_pointer) ||
-            !dialog.contains("/dialog/screens"_json_pointer) ||
-            !dialog.contains("/dialog/buttons"_json_pointer)) {
+            !dialog.contains("/dialog/screens"_json_pointer)) {
             cout << "\n\n>!!! Error !!! Dialog.json file was not detected or broken. Quit. !!!";
             return 0;
         }
         cout << "   > Dialog.json structure OK.\n";
     }
 
-    b = dialog["dialog"]["buttons"]; s = dialog["dialog"]["screens"];  a = dialog["dialog"]["actions"];
+    s = dialog["dialog"]["screens"];  a = dialog["dialog"]["actions"];
+    if (exists(dialog["dialog"], "button_exception")) button_exception = dialog["dialog"]["button_exception"];
     dialog.clear();
-
     JsonRead(cfg);
-
-
-    //string bbb = MakeBtns(d["dialog"]["buttons"], d["dialog"]["Screens"]["Help"]["buttons"], "");
-    //cout << exists(d["dialog"]["Screens"], "Start-") << "\n";
-    //cout << exists(d["tst"], u8"yes") << "\n";
-    //return 0;
-
-    //bool tst = cfg["dialog"][0]["actions"][0]["is_btn"].get<bool>();  //.get<bool>()
-    //if (tst) cout << "True selected" << "\n";
-    //else cout << "False selected" << "\n";
-
-    //cout << cfg["dialog"][0]["actions"][0]["check"][0]["is_btn"].get<bool>() << "\n";
-    /*cout << m << "\n";
-    cout << u8"Молчать" << "\n";
-    cout << "Молчать" << "\n";*/
 
     Server svr;
     svr.Post("/", gen_response);
@@ -369,84 +389,3 @@ int main() {
     std::cout << "Server started at: localhost:3000 ... OK\n";
     svr.listen("localhost", 3000);
 }
-
-/*
-//    transform(sl.begin(), sl.end(), sl.begin(), ::tolower);
-int Test_py() { // при недоделанной Алисе протестировать пайтон-сервер
-    string test = u8R"({ "user_id": "9359F683B13A18A1",
-                        "check":[
-                                    { "item": "сандальки", "price" : 250 },
-                                    { "item": "сандальк1", "price" : 350 },
-                                    { "item": "сандальк2", "price" : 450 },
-                                    { "item": "сандальк3", "price" : 550 },
-                                    { "item": "сандальк4", "price" : 650 },
-                                    { "item": "сандальк5", "price" : 750 },
-                                    { "item": "сандальк6", "price" : 850 }] } )";
-    char ip[] = "http://127.0.0.1:5000";
-    char dir[] = "/";
-
-    //.c_str()
-    json snd = json::parse(test);
-    cout << snd.dump(4);
-    Client cli(ip);
-    auto resd = cli.Post(dir, snd.dump(), "application/json");
-
-    return 0;
-
-    //json snd = json::object(); // array(); //object();
-    //snd.push_back({ "user_id", "9359F683B13A18A1" });
-    //snd.push_back({ "user_id", "9359F683B13A18A1" });
-    //json ar= json::array();
-    //ar.push_back()
-}
-
-
-ofstream logger("log.txt");
-string str = "";
-MakeReply(str);
-logger << str << "\n\n==================================================================\n\n";
-return 0;
-
-
-#include <unicode/unistr.h>
-#include <unicode/ustream.h>
-#include <unicode/locid.h>
-
-#include <iostream>
-
-int main()
-{
-
-char const* someString = u8"ΟΔΥΣΣΕΥΣ";
-icu::UnicodeString someUString(someString, "UTF-8");
-// Setting the locale explicitly here for completeness.
-// Usually you would use the user-specified system locale,
-// which *does* make a difference (see ı vs. i above).
-std::cout << someUString.toLower("el_GR") << "\n";
-std::cout << someUString.toUpper("el_GR") << "\n";
-return 0;
-}
-
- //u8     //cout << req.body.c_str()<<"\n\n";
-
-*/
-
-/* string str = u8R"(
- {
-   "response": {
-     "text": "Здравствуйте! Я помогу вам с покупками.",
-     "tts": "Здравствуйте! Я помогу вам с покупками.",
-     "buttons": [
-         {
-             "title": "Помощь",
-             "hide": true
-         },
-         {
-             "title": "Молчать",
-             "hide": true
-         }
-     ],
-     "end_session": false
-   },
-   "version": "1.0"
- })";*/
