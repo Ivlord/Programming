@@ -489,8 +489,10 @@ int main() {
 }
 ```
 
-<p>&nbsp;&nbsp;&nbsp;&nbsp;Привожу ниже полный текст текщей версии Dialogs.json:</p>  
+<p>&nbsp;&nbsp;&nbsp;&nbsp;Привожу ниже полный текст текщей версии Dialogs.json:</p>
+
 ```json
+
 {
  "version":"7.0",
  "DateTime":"17dec2020.4:15",
@@ -634,8 +636,6 @@ int main() {
 }
 
 ```
-
-
 
 <p>&nbsp;&nbsp;&nbsp;&nbsp;Привожу ниже полный текст серверного приложения (python):</p>  
 
