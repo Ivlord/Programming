@@ -23,12 +23,12 @@ json j_shablon_rep = json::parse(u8R"({ "response": { "text": " ", "tts": " ", "
                                         "end_session": false }, "version": "1.0"})");
 // "silent_mode"    - 0- Ализа заткнулась,  1 - продолжает говорить 
 // "screen":"Main"  - текущий экран
-json ses_shablon = json::parse(u8R"({"screen":"Main", "silent_mode":1,  
-                                     "session_id":"", "user_id":"" , "basket": { "user_id": "", "check" : [] } } )");
-
+json ses_shablon = json::parse(u8R"({"screen":"Main", "silent_mode":1, "rnd_on": true ,
+                                     "session_id":"", "basket": { "user_id": "", "check" : [] } } )");
 json good = json::parse(u8R"({ "item": "", "price" : 0 })");
 //json basket = json::parse(u8R"({ "user_id": "", "check" : [] })");
 
+bool Send_to_webhooks = false;
 json cfg, ses; // config file and session json
 json button_exception = {}, s = {}, a = {}; // short names for dialog parts: button_exception, screens, actions
 
@@ -89,42 +89,47 @@ int CntToken(string data) {
     return cnt;
 }
 
-bool SendWebhooks(json& basket) {
-    for (int i = 0; i < cfg["webhooks"].size(); i++) {
+bool SendWebhooks(json& basket, string site) {
 
-        string webhook_url = cfg["webhooks"][i]; // https:\\ 9 chars
+    string url = site.substr(0, site.find("/", 9));  // url // https:\\ 9+ chars
+    string dir = site.substr(site.find("/", 9));                     // dir
 
-        string url = webhook_url.substr(0, webhook_url.find("/", 9));  // url
-        string dir = webhook_url.substr(webhook_url.find("/", 9));                     // dir
+    cout << "   > url: " << url.c_str() << " dir: " << dir.c_str() << " ... ";
 
-        Client cli(url.c_str());
-        auto cli_res = cli.Post(dir.c_str(), basket.dump(), "application/json");
+    Client cli(url.c_str());
+    auto cli_res = cli.Post(dir.c_str(), basket.dump(), "application/json");
 
-        if (cli_res) { // Проверяем статус ответа, т.к. может быть 404 и другие
-            if (cli_res->status == 200) {
-                // В res->body лежит string с ответом сервера
-                //std::cout << cli_res->body << std::endl;
-                return true;
-            }
-            else  std::cout << "Status code: " << cli_res->status << std::endl;
+    if (cli_res) { // Проверяем статус ответа, т.к. может быть 404 и другие  //std::cout << cli_res->body << std::endl;
+        if (cli_res->status == 200) {
+            cout << " ok\n";   // В res->body лежит string с ответом сервера
+            return true;
         }
-        else { auto err = cli_res.error();  std::cout << "Error code: " << err << std::endl; }
-        return false;
+        else  std::cout << "Status code: " << cli_res->status << std::endl;
     }
+    else { auto err = cli_res.error();  std::cout << "Error code: " << err << std::endl; }
+    return false;
 }
 
-//["session"]["user"]["user_id"] or "anonymous"
+
+
+// rand() % elements_in_vect     "rnd_on"
 json OrderProcess(json& body) {
+    srand(time(NULL));
+
     string msg_picker = "";                   // ключ правильного сообщения
-                                              // Инициализация новой сессии с приветственным ответом. +обнуление корзины.
+    int msg_idx = 0;
+    // Инициализация новой сессии с приветственным ответом. +обнуление корзины.
     if (body["session"]["new"].get<bool>()) { // true-для новой сесии, false- продолжение
         ses = ses_shablon;
         ses["session_id"] = body["session"]["session_id"];            // сохраняем новый id сессии
 
-        if (empty(body["session"]["user"]["user_id"])) ses["user_id"] = "anonymous";
-        else ses["user_id"] = body["session"]["user"]["user_id"];       // и id пользователя или "anonymous"
-        msg_picker = ses["screen"];
+        if (empty(body["session"]["user"]["user_id"])) ses["basket"]["user_id"] = "anonymous";
+        else ses["basket"]["user_id"] = body["session"]["user"]["user_id"];       // и id пользователя или "anonymous"
 
+        cout << " > new session:" << ses["session_id"] << "\n";
+        cout << " > user_id:" << ses["basket"]["user_id"] << "\n";
+
+        msg_picker = ses["screen"];
         return MakeReply(s[msg_picker]["in_msg"][0], s[msg_picker]["in_tts"][0]);
     }
     else if (body["session"]["session_id"] != ses["session_id"])    // пришла сессия без id?
@@ -162,8 +167,10 @@ json OrderProcess(json& body) {
     for (auto& com : a[fnd_act]["react"][(string)ses["screen"]]) { // com= [{"CgangeVar":"Can_talk", "Val":false}, {"Msg":"Start"}]
         if (exists(com, "Msg")) {              // обработка команд Msg: устанавливаем текст ответа
             msg_picker = com["Msg"];           // берём название текста, для печати из значения команды "Msg"
-            msg_out = msg_out + a[fnd_act]["messages"][msg_picker]["msg"][0].get<string>();
-            tts_out = tts_out + a[fnd_act]["messages"][msg_picker]["tts"][0].get<string>();
+            if (ses["rnd_on"]) { msg_idx = rand() % s[msg_picker]["in_msg"].size(); }
+            else { msg_idx = 0; }
+            msg_out = msg_out + a[fnd_act]["messages"][msg_picker]["msg"][msg_idx].get<string>();
+            tts_out = tts_out + a[fnd_act]["messages"][msg_picker]["tts"][msg_idx].get<string>();
             continue;
         }
         else if (exists(com, "ChangeVar_Can_talk")) {
@@ -241,8 +248,13 @@ json OrderProcess(json& body) {
                 good["price"] = price;
                 ses["basket"]["check"].push_back(good);
             }
-            msg_out = msg_out + a[fnd_act]["messages"][msg_picker]["msg"][0].get<string>();
-            tts_out = tts_out + a[fnd_act]["messages"][msg_picker]["tts"][0].get<string>();
+
+            srand(time(NULL));
+            if (ses["rnd_on"]) { msg_idx = rand() % a[fnd_act]["messages"][msg_picker]["msg"].size(); }
+            else { msg_idx = 0; }
+            cout << msg_idx << "/" << a[fnd_act]["messages"][msg_picker]["msg"].size() << " - " << ses["rnd_on"] << "\n";
+            msg_out = msg_out + a[fnd_act]["messages"][msg_picker]["msg"][msg_idx].get<string>();
+            tts_out = tts_out + a[fnd_act]["messages"][msg_picker]["tts"][msg_idx].get<string>();
         }
         else if (exists(com, "dell_all")) {
             ses["basket"] = json::parse(u8R"({ "user_id": "", "check" : [] })");  // очистили корзину
@@ -250,13 +262,9 @@ json OrderProcess(json& body) {
         }
         else if (exists(com, "end session")) { //"send webhooks" "end session"
 
-            if (SendWebhooks(ses["basket"])) {
-                msg_out = msg_out + u8"\nError";
-                tts_out = tts_out + u8"Отсылка пока не работает";
-            }
-            else {
-                return MakeReply(msg_out, tts_out, true);
-            }
+            Send_to_webhooks = true;
+            cout << "   #" << msg_out << "\n";
+            return MakeReply(msg_out, tts_out, true);
         }
     }
     if (msg_out == "") { msg_out = u8"Что-то не так..."; }
@@ -271,6 +279,17 @@ void gen_response(const Request& req, Response& res) {
     json ttt = OrderProcess(body);
 
     res.set_content(ttt.dump(), "text/json; charset=UTF-8");
+
+    if (Send_to_webhooks)
+    {
+        cout << "Session closed. Sending data to:\n";
+        ppp(ses["basket"]);
+        for (int i = 0; i < cfg["webhooks"].size(); i++) {
+            string webhook_url = cfg["webhooks"][i];
+            SendWebhooks(ses["basket"], webhook_url);
+        }
+        Send_to_webhooks = false;
+    }
 }
 
 bool ConfigSave(json& cfg) {
@@ -324,12 +343,8 @@ void gen_response_WHGetPost(const Request& req, Response& res) {
         if (req.has_param("del")) {
             auto site_to_del = req.get_param_value("del");
             for (unsigned i = 0; i < cfg["webhooks"].size(); i++)
-            {
-                cout << "   json(site_to_del)=" << json(site_to_del) << endl;
-                cout << "   i = " << i << " " << cfg["webhooks"][i] << endl;
-
-                if (cfg["webhooks"][i] == site_to_del) {
-                    cout << "   del> i = " << i << " " << cfg["webhooks"][i] << endl;
+            {// cout << "   json(site_to_del)="<< json(site_to_del) << endl; cout << "   i = " << i << " " << cfg["webhooks"][i] << endl;
+                if (cfg["webhooks"][i] == site_to_del) {             //cout << "   del> i = " << i << " " << cfg["webhooks"][i] << endl;
                     cfg["webhooks"].erase(i); ConfigSave(cfg);
                     break;
                 }
