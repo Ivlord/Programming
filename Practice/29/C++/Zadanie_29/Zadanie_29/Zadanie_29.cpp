@@ -24,7 +24,7 @@ ostream& operator<< (ostream& out, Student student) {
 	prt_l(out, student.mathematics, 5, "| ");
 	prt_l(out, student.physics, 5, "| ");
 	prt_l(out, student.history, 5, "| ");
-	prt_l(out, student.history, 5, "| ");
+	prt_l(out, student.programming, 5, "| ");
 	return out;
 }
 ostream& operator<< (ostream& out, vector<Student> student_list) {
@@ -78,7 +78,7 @@ int main() {
 		}
 	}
 	Bozo_sort_ar(students, true); //cout << header << students << footer << "\n"; // несортированный вывод
-	cout << header << students << footer << "\nExpulsion\n\n";				// сортированный список студентов
+	cout << header << students << footer << "\nExpulsion\n\n";				      // сортированный список студентов
 
 	if (assholes.size()) cout << header << assholes[rand() % assholes.size()] << "\n" << footer << "\n";
 	else cout << "Not found\n";
