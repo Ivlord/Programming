@@ -31,7 +31,6 @@ json ses_shablon = json::parse(u8R"({"screen":"Main", "silent_mode":1, "rnd_on":
 json good = json::parse(u8R"({ "item": "", "price" : 0 })");
 //json basket = json::parse(u8R"({ "user_id": "", "check" : [] })");
 
-bool Send_to_webhooks = false;
 json cfg, ses; // config file and session json
 json button_exception = {}, s = {}, a = {}; // short names for dialog parts: button_exception, screens, actions
 
@@ -76,7 +75,6 @@ json MakeReply(string txt, string tts, bool end_session = false) {
     reply["response"]["text"] = txt;
     reply["response"]["tts"] = tts;
     reply["response"]["end_session"] = end_session;
-    //ppp(reply);
     return reply;
 }
 
@@ -89,21 +87,19 @@ string CutSpaces(string str) {
     return str;
 }
 
-bool IfCom(string main, string com) {
-    return (!main.find(com)); // если нашло на первой позиции, возврат true
-}
-
-string Good_Del(string main, string com) {
+string Good_Del(string main, string com, bool single = true) {
     if ((main == CutSpaces(com)) || (size(main) < size(com))) return ""; // просто ввели одну команду. "хвоста нет"
     string hvost = CutSpaces(main.substr(size(com)));
-    if (hvost[0] == ' ') hvost.erase(0, 1); // между командой и товаром есть пробел? отрезаем его
-    else  return "";                        // ввели без пробела. ошибка
+    if (!single) {
+        if (hvost[0] == ' ') hvost.erase(0, 1); // между командой и товаром есть пробел? отрезаем его
+        else  return "";                        // ввели без пробела. ошибка
+    }
 
     return hvost; // возвращаем  "хвост" (название товара)
 }
 
 string Good_Add(string main, string com) {
-    string hvost = Good_Del(main, com); // отрезаем команду в начале строки
+    string hvost = Good_Del(main, com, false); // отрезаем команду в начале строки
     if (empty(hvost)) return ""; // хвост пустой? ошибка
 
     // ищем цену - первая цифра должна быть
@@ -118,16 +114,31 @@ string Good_Add(string main, string com) {
 }
 
 bool SendWebhooks(json& basket, string site) {
+    string url;
+    string dir;
+    size_t index = site.find("//");
+    if (index == string::npos) {  // сайт введен без https://
+        index = site.find("/");
+        index = 0;
+    }
+    else { index += 2; }
 
-    string url = site.substr(0, site.find("/", 9));  // url // https:\\ 9+ chars
-    string dir = site.substr(site.find("/", 9));                     // dir
+    index = site.find("/", index);
 
-    cout << "   > url: " << url.c_str() << " dir: " << dir.c_str() << " ... ";
+    if (index == string::npos) {     // без dir
+        url = site; dir = string("/");
+    }
+    else {
+        url = site.substr(0, index);
+        dir = site.substr(index);
+    }
+
+    cout << "   > url: " << url << " dir: " << dir << " ... ";
 
     Client cli(url.c_str());
     auto cli_res = cli.Post(dir.c_str(), basket.dump(), "application/json");
 
-    if (cli_res) { // Проверяем статус ответа, т.к. может быть 404 и другие  //std::cout << cli_res->body << std::endl;
+    if (cli_res) { // Проверяем статус ответа, т.к. может быть 404 и другие
         if (cli_res->status == 200) {
             cout << " ok\n";   // В res->body лежит string с ответом сервера
             return true;
@@ -140,8 +151,8 @@ bool SendWebhooks(json& basket, string site) {
 
 void fill_msg(string& msg, string& tts, string& fnd_act, string msg_picker, json& a) {
     int msg_idx = (ses["rnd_on"]) ? rand() % a[fnd_act]["messages"][msg_picker]["msg"].size() : 0;
-    msg = msg + a[fnd_act]["messages"][msg_picker]["msg"][msg_idx].get<string>();
-    tts = tts + a[fnd_act]["messages"][msg_picker]["tts"][msg_idx].get<string>();
+    msg += a[fnd_act]["messages"][msg_picker]["msg"][msg_idx].get<string>();
+    tts += a[fnd_act]["messages"][msg_picker]["tts"][msg_idx].get<string>();
 }
 
 json OrderProcess(json& body) {
@@ -155,7 +166,7 @@ json OrderProcess(json& body) {
         ses["session_id"] = body["session"]["session_id"];                        // сохраняем новый id сессии
 
         if (empty(body["session"]["user"]["user_id"])) ses["basket"]["user_id"] = "anonymous";
-        else ses["basket"]["user_id"] = body["session"]["user"]["user_id"];       // и id пользователя или "anonymous"
+        else ses["basket"]["user_id"] = body["session"]["user"]["user_id"];  // и id пользователя или "anonymous"
 
         cout << " > new session:" << ses["session_id"] << "\n";
         cout << " > user_id:" << ses["basket"]["user_id"] << "\n";
@@ -168,17 +179,17 @@ json OrderProcess(json& body) {
         return MakeReply(s["Main"]["out_msg"][0], s["Main"]["out_tts"][0], true);
     }
     string ut = body["request"]["original_utterance"].get<string>();
-    string msg_out = "", tts_out = "";
+    string msg_out = "", tts_out = ""; // спул сообщений
 
-    string fnd_word = "", fnd_act = "";  // для совпавшей action и конкретно совпавшего слова
-    string screen = ses["screen"];
+    string fnd_word = "", fnd_act = "";  // для совпавшей конкретно совпавшего слова и action 
+    string screen = ses["screen"].get<string>();
     string screen_fail_msg = s[screen]["fail_msg"][0].get<string>();
     string screen_fail_tts = s[screen]["fail_tts"][0].get<string>();
 
     json sa = s[screen]["actions"];
 
-    for (unsigned i = 0; i < sa.size(); i++) {                           // список экшинов на экране
-        string new_chck = sa[i];                                    // конкретный экшин
+    for (unsigned i = 0; i < sa.size(); i++) {                  // список экшинов на экране
+        string new_chck = sa[i].get<string>();                  // конкретный экшин
 
         if (!exists(a, new_chck)) continue;                          // такой реакции нет в списке реакций. пропускаем.
         for (unsigned j = 0; j < a[new_chck]["check"].size(); j++) { // идём оп словам контрольным
@@ -196,7 +207,7 @@ json OrderProcess(json& body) {
     }
 
     //// command processing section
-    for (auto& com : a[fnd_act]["react"][(string)ses["screen"]]) {
+    for (auto& com : a[fnd_act]["react"][screen]) {
         if (exists(com, "Msg")) {                                // обработка команд Msg: устанавливаем текст ответа
             fill_msg(msg_out, tts_out, fnd_act, com["Msg"], a);  // com["Msg"] - берём название текста, для печати из значения команды "Msg"
             continue;
@@ -210,13 +221,24 @@ json OrderProcess(json& body) {
             ses["screen"] = com["ChangeVar_screen"].get<string>();
         }
 
+        else if (exists(com, "command_list")) {
+            if (screen == "Help") {
+                for (unsigned i = 0; i < a[fnd_act]["check"].size(); i++) {
+                    msg_out += a[fnd_act]["check"][i].get<string>().append((i == a[fnd_act]["check"].size() - 1) ? "." : ", ");
+                    tts_out += a[fnd_act]["check"][i].get<string>().append(",");
+                }
+                continue;
+            }
+        }
+
         else if (exists(com, "del_good")) { // delete good
-            string del_good = Good_Del(ut, fnd_word);
+            string del_good = Good_Del(ut, fnd_word, false);
             if (empty(del_good)) return MakeReply(screen_fail_msg, screen_fail_tts);
 
             bool fnd_good = false;
             for (unsigned i = 0; i < ses["basket"]["check"].size(); i++) {
                 if (ses["basket"]["check"][i]["item"] != del_good) continue;
+
                 ses["basket"]["check"].erase(i);
                 fnd_good = true;
                 break;
@@ -246,7 +268,7 @@ json OrderProcess(json& body) {
             if (!empty(Good_Del(ut, fnd_word))) return MakeReply(screen_fail_msg, screen_fail_tts);
             int price = 0;
             for (unsigned i = 0; i < ses["basket"]["check"].size(); i++) {
-                price = price + ses["basket"]["check"][i]["price"].get<int>();
+                price += ses["basket"]["check"][i]["price"].get<int>();
             }
 
             fill_msg(msg_out, tts_out, fnd_act, (price) ? "Main" : "Fail", a);
@@ -288,7 +310,7 @@ json OrderProcess(json& body) {
                 ses["basket"]["check"].push_back(good);
             }
 
-            fill_msg(msg_out, tts_out, fnd_act, (price) ? "Main" : "Fail", a);
+            fill_msg(msg_out, tts_out, fnd_act, "Main", a);
         }
 
         else if (exists(com, "dell_all")) { // очистка корзины
@@ -304,34 +326,26 @@ json OrderProcess(json& body) {
 
         else if (exists(com, "end session")) { //"send webhooks" "end session"
             if (!empty(Good_Del(ut, fnd_word))) return MakeReply(screen_fail_msg, screen_fail_tts);
-            Send_to_webhooks = true;                // отсроченная отсылка данных на вёбхуки
+
+            cout << "Session closed. Sending data to:\n";
+            for (int i = 0; i < cfg["webhooks"].size(); i++) {
+                string webhook_url = cfg["webhooks"][i].get<string>();
+                SendWebhooks(ses["basket"], webhook_url);
+            }
+
             return MakeReply(msg_out, tts_out, true);
         }
     }
     if (msg_out == "") { msg_out = u8"Что-то не так..."; }
 
-    return MakeReply(msg_out,
-        tts_out);
+    return MakeReply(msg_out, tts_out);
 }
 
 void gen_response(const Request& req, Response& res) {
 
     json body = json::parse(req.body.c_str()); //u8     //cout << req.body.c_str()<<"\n\n";
 
-    json ttt = OrderProcess(body);
-
-    res.set_content(ttt.dump(), "text/json; charset=UTF-8");
-
-    if (Send_to_webhooks)
-    {
-        cout << "Session closed. Sending data to:\n";
-        ppp(ses["basket"]);
-        for (int i = 0; i < cfg["webhooks"].size(); i++) {
-            string webhook_url = cfg["webhooks"][i];
-            SendWebhooks(ses["basket"], webhook_url);
-        }
-        Send_to_webhooks = false;
-    }
+    res.set_content(OrderProcess(body).dump(), "text/json; charset=UTF-8");
 }
 
 bool ConfigSave(json& cfg) {
@@ -384,9 +398,8 @@ void gen_response_WHGetPost(const Request& req, Response& res) {
     if (req.method == "POST") {
         if (req.has_param("del")) {
             auto site_to_del = req.get_param_value("del");
-            for (unsigned i = 0; i < cfg["webhooks"].size(); i++)
-            {// cout << "   json(site_to_del)="<< json(site_to_del) << endl; cout << "   i = " << i << " " << cfg["webhooks"][i] << endl;
-                if (cfg["webhooks"][i] == site_to_del) {             //cout << "   del> i = " << i << " " << cfg["webhooks"][i] << endl;
+            for (unsigned i = 0; i < cfg["webhooks"].size(); i++) {
+                if (cfg["webhooks"][i] == site_to_del) {
                     cfg["webhooks"].erase(i); ConfigSave(cfg);
                     break;
                 }
@@ -411,7 +424,7 @@ void gen_response_WHGetPost(const Request& req, Response& res) {
 
     for (unsigned i = 0; i < cfg["webhooks"].size(); i++) {
         reply_insert.append(del1).append(cfg["webhooks"][i]).append(del2).append(cfg["webhooks"][i]).append(del3);
-    } //for (int i = 0; i < stro.length(); i++){if (stro[i] == '\\'){stro.erase(i);}}
+    }
 
     WH_template_text.replace(WH_template_text.find(WH_pattern), size(WH_pattern), reply_insert);
     res.set_content(WH_template_text, "text/html; charset=UTF-8");  // ответ на Get запрос
