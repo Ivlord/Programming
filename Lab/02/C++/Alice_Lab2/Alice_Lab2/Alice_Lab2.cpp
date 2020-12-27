@@ -296,7 +296,7 @@ json OrderProcess(json& body) {
             if (tokens_amount > price_end_token) {// после цены идут ещё токены, проверяем
                 string after_price_token = body["request"]["nlu"]["tokens"][price_end_token].get<string>();
 
-                if ((after_price_token != u8"р") && (after_price_token != u8"руб")) { // не та валюта. ошибка
+                if ((after_price_token != u8"р") && (after_price_token != u8"руб") && (after_price_token != u8"р.")) { // не та валюта. ошибка
                     return MakeReply(screen_fail_msg, screen_fail_tts);
                 }
                 if (tokens_amount > price_end_token + 1) {// слишком много токенов после цены. ошибка
