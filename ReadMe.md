@@ -1,7 +1,8 @@
 ## University Programming Tasks
 Author: Ivan Mazlov
 
-​Period  | Year | Tasks | Language
--- | -- | -- | -- 
-1 year sturdies | 2020 | Practice tasks | [[Python & c++]](./Practice/)
-3 year sturdies | 2022 | Theory of information & coding | [[Python]](./LabsTIC/)
+Year | Tasks | Language
+-- | -- | -- 
+2020 | Practice tasks | [[Python & c++]](./Practice/)
+2021 | Practice tasks | [[Python & c++]](./LabsY2/)
+2022 | Theory of information & coding | [[Python]](./LabsTIC/)
